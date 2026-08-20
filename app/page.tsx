@@ -48,13 +48,21 @@ export default function Home() {
       const responseBody: unknown = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const message =
+        const serverMessage =
           responseBody &&
           typeof responseBody === "object" &&
           "error" in responseBody &&
           typeof responseBody.error === "string"
             ? responseBody.error
-            : "Role analysis could not be completed. Please try again.";
+            : null;
+        const message =
+          response.status === 429
+            ? "RoleLens is receiving too many requests. Wait a moment and try again."
+            : response.status >= 500
+              ? serverMessage ??
+                "RoleLens is temporarily unavailable. Your information was not saved. Please try again."
+              : serverMessage ??
+                "Check the job description and candidate profile, then try again.";
         throw new Error(message);
       }
 
@@ -71,7 +79,7 @@ export default function Home() {
     } catch (error) {
       setRequestError(
         error instanceof TypeError
-          ? "Unable to reach RoleLens. Check your connection and try again."
+          ? "We couldn't connect to RoleLens. Check your internet connection and try again. Your information was not saved."
           : error instanceof Error
           ? error.message
           : "Role analysis could not be completed. Please try again.",
@@ -84,7 +92,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5 lg:px-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
           <a className="text-xl font-bold tracking-tight" href="#top">
             Role<span className="text-indigo-600">Lens</span>
           </a>
@@ -94,12 +102,12 @@ export default function Home() {
         </div>
       </header>
 
-      <div id="top" className="mx-auto max-w-6xl px-6 py-12 lg:px-8 lg:py-16">
+      <div id="top" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
         <section className="max-w-3xl">
           <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">
             Transparent job comparison
           </p>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">
             See the evidence behind a job match.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
@@ -110,7 +118,8 @@ export default function Home() {
         </section>
 
         <form
-          className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+          aria-busy={isLoading}
+          className="mt-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:mt-10 sm:p-8"
           noValidate
           onSubmit={handleSubmit}
         >
@@ -128,12 +137,13 @@ export default function Home() {
               <textarea
                 aria-describedby="job-description-help job-description-count job-description-error"
                 aria-invalid={touched.jobDescription && Boolean(jobDescriptionError)}
-                className={`mt-3 min-h-64 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 ${
+                className={`mt-3 min-h-56 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-500 sm:min-h-64 ${
                   touched.jobDescription && jobDescriptionError
                     ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100"
                     : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
                 }`}
                 id="job-description"
+                disabled={isLoading}
                 maxLength={MAX_CHARACTERS}
                 onBlur={() =>
                   setTouched((current) => ({ ...current, jobDescription: true }))
@@ -169,12 +179,13 @@ export default function Home() {
               <textarea
                 aria-describedby="candidate-profile-help candidate-profile-count candidate-profile-error"
                 aria-invalid={touched.candidateProfile && Boolean(candidateProfileError)}
-                className={`mt-3 min-h-64 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 ${
+                className={`mt-3 min-h-56 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-500 sm:min-h-64 ${
                   touched.candidateProfile && candidateProfileError
                     ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100"
                     : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
                 }`}
                 id="candidate-profile"
+                disabled={isLoading}
                 maxLength={MAX_CHARACTERS}
                 onBlur={() =>
                   setTouched((current) => ({ ...current, candidateProfile: true }))
@@ -206,7 +217,7 @@ export default function Home() {
             </p>
             <button
               aria-describedby="analysis-status"
-              className="shrink-0 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full shrink-0 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:opacity-100 sm:w-auto"
               disabled={!isFormValid || isLoading}
               type="submit"
             >
@@ -226,6 +237,11 @@ export default function Home() {
           <p className="sr-only" id="analysis-status" aria-live="polite">
             {isLoading ? "Analysis is loading." : ""}
           </p>
+          {isLoading ? (
+            <p className="mt-4 text-center text-sm text-slate-600" aria-live="polite">
+              Comparing the evidence now. This may take a moment.
+            </p>
+          ) : null}
           {requestError ? (
             <p
               className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
@@ -336,6 +352,11 @@ export default function Home() {
             deserves the job.
           </p>
         </aside>
+
+        <p className="mx-auto mt-5 max-w-3xl text-center text-sm leading-6 text-slate-600">
+          RoleLens provides information to support human decision-making. Final
+          decisions should always include human judgment.
+        </p>
       </div>
     </main>
   );

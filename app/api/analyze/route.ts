@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import {
+  applySafetySafeguards,
   analysisRequestSchema,
   createAnalysisPrompt,
   roleAnalysisJsonSchema,
@@ -40,7 +41,10 @@ export async function POST(request: Request) {
   if (!apiKey) {
     console.error("GEMINI_API_KEY is not configured.");
     return NextResponse.json(
-      { error: "Role analysis is temporarily unavailable." },
+      {
+        error:
+          "Role analysis is temporarily unavailable. Your information was not saved. Please try again later.",
+      },
       { status: 503 },
     );
   }
@@ -58,7 +62,11 @@ export async function POST(request: Request) {
     });
 
     const rawAnalysis: unknown = JSON.parse(interaction.output_text);
-    const analysis = roleAnalysisSchema.parse(rawAnalysis);
+    const parsedAnalysis = roleAnalysisSchema.parse(rawAnalysis);
+    const analysis = applySafetySafeguards(
+      parsedAnalysis,
+      parsedRequest.data.candidateProfile,
+    );
 
     return NextResponse.json({ analysis });
   } catch (error) {
@@ -69,7 +77,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { error: "Role analysis could not be completed. Please try again." },
+      {
+        error:
+          "We couldn't complete this analysis right now. Your information was not saved. Please try again.",
+      },
       { status: 502 },
     );
   }
