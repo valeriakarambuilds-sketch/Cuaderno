@@ -61,7 +61,17 @@ export async function POST(request: Request) {
       },
     });
 
-    const rawAnalysis: unknown = JSON.parse(interaction.output_text);
+    const outputText = interaction.output_text;
+
+    if (!outputText) {
+      console.error("Gemini returned no output text.");
+      return NextResponse.json(
+        { error: "Role analysis returned no result. Please try again." },
+        { status: 502 },
+      );
+    }
+
+    const rawAnalysis: unknown = JSON.parse(outputText);
     const parsedAnalysis = roleAnalysisSchema.parse(rawAnalysis);
     const analysis = applySafetySafeguards(
       parsedAnalysis,
