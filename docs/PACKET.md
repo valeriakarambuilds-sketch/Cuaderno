@@ -25,8 +25,7 @@ The product will not generate a numerical candidate score.
 
 ## 4. Generated Mockup
 
-**Insert the AI-generated interface mockup here.**
-
+![RoleLens AI-generated mockup](rolelens-mockup.png)
 The mockup should show:
 
 - RoleLens title
