@@ -3,30 +3,10 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 
-const MAX_CHARACTERS = 6_000;
+import { roleAnalysisSchema } from "@/lib/role-analysis";
+import type { RoleAnalysis } from "@/lib/role-analysis";
 
-const resultSections = [
-  {
-    title: "Evidence Found",
-    description: "Requirements supported by details in the candidate profile.",
-    accent: "bg-emerald-500",
-  },
-  {
-    title: "Missing Evidence",
-    description: "Requirements that are not demonstrated in the profile yet.",
-    accent: "bg-amber-500",
-  },
-  {
-    title: "Needs Human Review",
-    description: "Information that is ambiguous or needs context from a person.",
-    accent: "bg-sky-500",
-  },
-  {
-    title: "Data We Ignore",
-    description: "Sensitive personal details that must never affect the analysis.",
-    accent: "bg-violet-500",
-  },
-];
+const MAX_CHARACTERS = 6_000;
 
 export default function Home() {
   const [jobDescription, setJobDescription] = useState("");
@@ -36,6 +16,8 @@ export default function Home() {
     candidateProfile: false,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<RoleAnalysis | null>(null);
+  const [requestError, setRequestError] = useState("");
 
   const jobDescriptionError = jobDescription.trim()
     ? ""
@@ -45,7 +27,7 @@ export default function Home() {
     : "Enter a candidate profile before analyzing role fit.";
   const isFormValid = !jobDescriptionError && !candidateProfileError;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTouched({ jobDescription: true, candidateProfile: true });
 
@@ -53,9 +35,50 @@ export default function Home() {
       return;
     }
 
-    // This state is ready to wrap the analysis request in a later commit.
     setIsLoading(true);
-    window.setTimeout(() => setIsLoading(false), 800);
+    setRequestError("");
+    setAnalysis(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription, candidateProfile }),
+      });
+      const responseBody: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message =
+          responseBody &&
+          typeof responseBody === "object" &&
+          "error" in responseBody &&
+          typeof responseBody.error === "string"
+            ? responseBody.error
+            : "Role analysis could not be completed. Please try again.";
+        throw new Error(message);
+      }
+
+      const result =
+        responseBody && typeof responseBody === "object" && "analysis" in responseBody
+          ? roleAnalysisSchema.safeParse(responseBody.analysis)
+          : null;
+
+      if (!result?.success) {
+        throw new Error("RoleLens received an invalid response. Please try again.");
+      }
+
+      setAnalysis(result.data);
+    } catch (error) {
+      setRequestError(
+        error instanceof TypeError
+          ? "Unable to reach RoleLens. Check your connection and try again."
+          : error instanceof Error
+          ? error.message
+          : "Role analysis could not be completed. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -203,35 +226,108 @@ export default function Home() {
           <p className="sr-only" id="analysis-status" aria-live="polite">
             {isLoading ? "Analysis is loading." : ""}
           </p>
+          {requestError ? (
+            <p
+              className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              role="alert"
+            >
+              {requestError}
+            </p>
+          ) : null}
         </form>
 
-        <section className="mt-12" aria-labelledby="results-heading">
-          <div className="flex items-end justify-between gap-6">
+        {analysis ? (
+          <section className="mt-12" aria-labelledby="results-heading">
             <div>
-              <p className="text-sm font-semibold text-indigo-600">How results appear</p>
+              <p className="text-sm font-semibold text-indigo-600">Analysis complete</p>
               <h2 id="results-heading" className="mt-1 text-2xl font-bold tracking-tight">
-                A structured explanation
+                Structured analysis results
               </h2>
             </div>
-          </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {resultSections.map((section) => (
-              <article
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-                key={section.title}
-              >
-                <div className={`h-1.5 ${section.accent}`} />
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="h-1.5 bg-emerald-500" />
                 <div className="p-5">
-                  <h3 className="font-semibold">{section.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {section.description}
-                  </p>
+                  <h3 className="font-semibold">Evidence Found</h3>
+                  {analysis.evidenceFound.length ? (
+                    <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+                      {analysis.evidenceFound.map((item, index) => (
+                        <li key={`${item.requirement}-${index}`}>
+                          <span className="font-semibold text-slate-800">{item.requirement}:</span>{" "}
+                          {item.evidence}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-slate-500">No explicit evidence was found.</p>
+                  )}
                 </div>
               </article>
-            ))}
-          </div>
-        </section>
+
+              <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="h-1.5 bg-amber-500" />
+                <div className="p-5">
+                  <h3 className="font-semibold">Missing Evidence</h3>
+                  {analysis.missingEvidence.length ? (
+                    <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+                      {analysis.missingEvidence.map((item, index) => (
+                        <li key={`${item.requirement}-${index}`}>
+                          <span className="font-semibold text-slate-800">{item.requirement}:</span>{" "}
+                          {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-slate-500">No missing evidence was identified.</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="h-1.5 bg-sky-500" />
+                <div className="p-5">
+                  <h3 className="font-semibold">Needs Human Review</h3>
+                  {analysis.humanReview.length ? (
+                    <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+                      {analysis.humanReview.map((item, index) => (
+                        <li key={`${item.item}-${index}`}>
+                          <span className="font-semibold text-slate-800">{item.item}:</span>{" "}
+                          {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-slate-500">No items require human review.</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <div className="h-1.5 bg-violet-500" />
+                <div className="p-5">
+                  <h3 className="font-semibold">Data Intentionally Ignored</h3>
+                  {analysis.ignoredData.length ? (
+                    <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-slate-600">
+                      {analysis.ignoredData.map((item, index) => (
+                        <li key={`${item}-${index}`}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm leading-6 text-slate-500">No sensitive data was present.</p>
+                  )}
+                </div>
+              </article>
+            </div>
+
+            <article className="mt-4 overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50 shadow-sm">
+              <div className="p-5">
+                <h3 className="font-semibold text-indigo-950">Next Best Action</h3>
+                <p className="mt-2 text-sm leading-6 text-indigo-900">{analysis.nextAction}</p>
+              </div>
+            </article>
+          </section>
+        ) : null}
 
         <aside className="mt-10 rounded-2xl bg-slate-900 px-6 py-5 text-slate-100 sm:flex sm:items-center sm:gap-4">
           <span aria-hidden="true" className="text-xl">✦</span>
