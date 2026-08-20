@@ -304,6 +304,10 @@ export default function Home() {
                 <div className="h-1.5 bg-sky-500" />
                 <div className="p-5">
                   <h3 className="font-semibold">Needs Human Review</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    This means there is related evidence, but not enough to confirm the
+                    requirement. A recruiter or hiring manager should review it.
+                  </p>
                   {analysis.humanReview.length ? (
                     <ul className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
                       {analysis.humanReview.map((item, index) => (
