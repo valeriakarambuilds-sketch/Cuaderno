@@ -124,6 +124,37 @@ export function applySafetySafeguards(
     return sensitiveLabels.length === 0;
   });
 
+  const hasRelatedTeamworkEvidence =
+    /\b(teamwork|team member|collaborat(?:e|ed|es|ing|ion)|worked (?:on|with) (?:a |the )?team|cross-functional)\b/i.test(
+      candidateProfile,
+    );
+  const hasExplicitLeadershipEvidence =
+    /\b(led|leader|leadership|managed|manager|managing|supervised|supervisor|directed|oversaw|headed)\b/i.test(
+      candidateProfile,
+    );
+  const ambiguousLeadership = missingEvidence.filter((item) =>
+    /\b(leadership|team lead|lead(?:ing)? (?:a |the )?team|people management|managerial|supervis(?:e|ing|ion|ory))\b/i.test(
+      item.requirement,
+    ),
+  );
+  const resolvedMissingEvidence =
+    hasRelatedTeamworkEvidence && !hasExplicitLeadershipEvidence
+      ? missingEvidence.filter((item) => !ambiguousLeadership.includes(item))
+      : missingEvidence;
+  const resolvedHumanReview =
+    hasRelatedTeamworkEvidence &&
+    !hasExplicitLeadershipEvidence &&
+    ambiguousLeadership.length
+      ? [
+          ...humanReview,
+          ...ambiguousLeadership.map((item) => ({
+            item: item.requirement,
+            reason:
+              "The profile mentions teamwork or collaboration but does not establish leadership responsibility.",
+          })),
+        ]
+      : humanReview;
+
   const safeNextAction = sensitiveLabelsIn(analysis.nextAction).length
     ? "Add a specific example that demonstrates a job-relevant requirement."
     : analysis.nextAction;
@@ -131,8 +162,8 @@ export function applySafetySafeguards(
   return {
     ...analysis,
     evidenceFound,
-    missingEvidence,
-    humanReview,
+    missingEvidence: resolvedMissingEvidence,
+    humanReview: resolvedHumanReview,
     ignoredData: Array.from(ignoredData),
     nextAction: safeNextAction,
   };
