@@ -1,3 +1,10 @@
+"use client";
+
+import { useState } from "react";
+import type { FormEvent } from "react";
+
+const MAX_CHARACTERS = 6_000;
+
 const resultSections = [
   {
     title: "Evidence Found",
@@ -22,6 +29,35 @@ const resultSections = [
 ];
 
 export default function Home() {
+  const [jobDescription, setJobDescription] = useState("");
+  const [candidateProfile, setCandidateProfile] = useState("");
+  const [touched, setTouched] = useState({
+    jobDescription: false,
+    candidateProfile: false,
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const jobDescriptionError = jobDescription.trim()
+    ? ""
+    : "Enter a job description before analyzing role fit.";
+  const candidateProfileError = candidateProfile.trim()
+    ? ""
+    : "Enter a candidate profile before analyzing role fit.";
+  const isFormValid = !jobDescriptionError && !candidateProfileError;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTouched({ jobDescription: true, candidateProfile: true });
+
+    if (!isFormValid || isLoading) {
+      return;
+    }
+
+    // This state is ready to wrap the analysis request in a later commit.
+    setIsLoading(true);
+    window.setTimeout(() => setIsLoading(false), 800);
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -50,32 +86,92 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <form
+          className="mt-10 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+          noValidate
+          onSubmit={handleSubmit}
+        >
           <div className="grid gap-6 lg:grid-cols-2">
             <label className="block">
               <span className="text-sm font-semibold text-slate-800">
                 Job Description
               </span>
-              <span className="mt-1 block text-sm text-slate-500">
+              <span
+                className="mt-1 block text-sm text-slate-500"
+                id="job-description-help"
+              >
                 Paste the responsibilities and requirements for the role.
               </span>
               <textarea
-                className="mt-3 min-h-64 w-full resize-y rounded-2xl border border-slate-300 bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                aria-describedby="job-description-help job-description-count job-description-error"
+                aria-invalid={touched.jobDescription && Boolean(jobDescriptionError)}
+                className={`mt-3 min-h-64 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 ${
+                  touched.jobDescription && jobDescriptionError
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100"
+                    : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
+                }`}
+                id="job-description"
+                maxLength={MAX_CHARACTERS}
+                onBlur={() =>
+                  setTouched((current) => ({ ...current, jobDescription: true }))
+                }
+                onChange={(event) => setJobDescription(event.target.value)}
                 placeholder="Paste the job description here..."
+                required
+                value={jobDescription}
               />
+              <span className="mt-2 flex min-h-6 items-start justify-between gap-4 text-sm">
+                <span className="text-rose-600" id="job-description-error" role="alert">
+                  {touched.jobDescription ? jobDescriptionError : ""}
+                </span>
+                <span
+                  className="shrink-0 tabular-nums text-slate-500"
+                  id="job-description-count"
+                >
+                  {jobDescription.length.toLocaleString()} / {MAX_CHARACTERS.toLocaleString()}
+                </span>
+              </span>
             </label>
 
             <label className="block">
               <span className="text-sm font-semibold text-slate-800">
                 Candidate Profile
               </span>
-              <span className="mt-1 block text-sm text-slate-500">
+              <span
+                className="mt-1 block text-sm text-slate-500"
+                id="candidate-profile-help"
+              >
                 Paste a resume or a summary of relevant experience.
               </span>
               <textarea
-                className="mt-3 min-h-64 w-full resize-y rounded-2xl border border-slate-300 bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                aria-describedby="candidate-profile-help candidate-profile-count candidate-profile-error"
+                aria-invalid={touched.candidateProfile && Boolean(candidateProfileError)}
+                className={`mt-3 min-h-64 w-full resize-y rounded-2xl border bg-slate-50 p-4 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:bg-white focus:ring-4 ${
+                  touched.candidateProfile && candidateProfileError
+                    ? "border-rose-500 focus:border-rose-500 focus:ring-rose-100"
+                    : "border-slate-300 focus:border-indigo-500 focus:ring-indigo-100"
+                }`}
+                id="candidate-profile"
+                maxLength={MAX_CHARACTERS}
+                onBlur={() =>
+                  setTouched((current) => ({ ...current, candidateProfile: true }))
+                }
+                onChange={(event) => setCandidateProfile(event.target.value)}
                 placeholder="Paste the candidate profile here..."
+                required
+                value={candidateProfile}
               />
+              <span className="mt-2 flex min-h-6 items-start justify-between gap-4 text-sm">
+                <span className="text-rose-600" id="candidate-profile-error" role="alert">
+                  {touched.candidateProfile ? candidateProfileError : ""}
+                </span>
+                <span
+                  className="shrink-0 tabular-nums text-slate-500"
+                  id="candidate-profile-count"
+                >
+                  {candidateProfile.length.toLocaleString()} / {MAX_CHARACTERS.toLocaleString()}
+                </span>
+              </span>
             </label>
           </div>
 
@@ -86,14 +182,28 @@ export default function Home() {
               evidence of job suitability.
             </p>
             <button
-              className="shrink-0 cursor-not-allowed rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white opacity-70"
-              disabled
-              type="button"
+              aria-describedby="analysis-status"
+              className="shrink-0 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!isFormValid || isLoading}
+              type="submit"
             >
-              Analyze Match
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                  />
+                  Analyzing…
+                </span>
+              ) : (
+                "Analyze Role Fit"
+              )}
             </button>
           </div>
-        </section>
+          <p className="sr-only" id="analysis-status" aria-live="polite">
+            {isLoading ? "Analysis is loading." : ""}
+          </p>
+        </form>
 
         <section className="mt-12" aria-labelledby="results-heading">
           <div className="flex items-end justify-between gap-6">
