@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const client = new GoogleGenAI({ apiKey });
     const interaction = await client.interactions.create({
-      model: "gemini-2.5-flash-lite",
+      model: "gemini-3.5-flash-lite",
       input: createAnalysisPrompt(parsedRequest.data),
       response_format: {
         type: "text",
