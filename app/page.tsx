@@ -295,7 +295,10 @@ export default function Home() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-2 text-sm leading-6 text-slate-500">No missing evidence was identified.</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                      No requirements were completely unsupported. Some requirements may
+                      still need more evidence or human review.
+                    </p>
                   )}
                 </div>
               </article>
@@ -303,9 +306,9 @@ export default function Home() {
               <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div className="h-1.5 bg-sky-500" />
                 <div className="p-5">
-                  <h3 className="font-semibold">Needs Human Review</h3>
+                  <h3 className="font-semibold">Possible Match — Needs More Evidence</h3>
                   <p className="mt-2 text-sm leading-6 text-slate-500">
-                    This means there is related evidence, but not enough to confirm the
+                    Related evidence was found, but it is not enough to confirm this
                     requirement. A recruiter or hiring manager should review it.
                   </p>
                   {analysis.humanReview.length ? (
